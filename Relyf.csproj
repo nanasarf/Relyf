@@ -4,9 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dabf559d-1e6c-4e7f-a4a9-a6b7ad748319</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="OpenAI-DotNet" Version="8.8.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
