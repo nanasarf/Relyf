@@ -48,7 +48,7 @@ namespace Relyf.Controllers
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                // Send request to Cohere API
+                //Send request to Cohere API
                 var response = await _httpClient.PostAsync("https://api.cohere.ai/v1/generate", content);
                 var responseString = await response.Content.ReadAsStringAsync();
 
