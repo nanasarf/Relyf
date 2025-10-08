@@ -1,6 +1,0 @@
-@Relife_HostAddress = http://localhost:5182
-
-GET {{Relife_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
