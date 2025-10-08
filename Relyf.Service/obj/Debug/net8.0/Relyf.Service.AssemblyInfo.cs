@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Relyf.Service")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1381370fe30eb2e1cc827d7fa643edffd25d49ff")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4dea6c1b2e8b1f8a5e0a0e29b721ab64a37241f8")]
 [assembly: System.Reflection.AssemblyProductAttribute("Relyf.Service")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Relyf.Service")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

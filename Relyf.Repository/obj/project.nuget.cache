@@ -1,8 +1,17 @@
 {
   "version": 2,
-  "dgSpecHash": "ar1knkHB1K4=",
+  "dgSpecHash": "diqzu7pIpzI=",
   "success": true,
   "projectFilePath": "C:\\Users\\ennxk\\COMSCI\\SofwareDev\\Relyf\\Relyf.Repository\\Relyf.Repository.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\ennxk\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\8.0.0\\microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\microsoft.extensions.objectpool\\6.0.3\\microsoft.extensions.objectpool.6.0.3.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\microsoft.odata.core\\8.4.0\\microsoft.odata.core.8.4.0.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\microsoft.odata.edm\\8.4.0\\microsoft.odata.edm.8.4.0.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\microsoft.spatial\\8.4.0\\microsoft.spatial.8.4.0.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\4.6.0\\system.runtime.compilerservices.unsafe.4.6.0.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\system.text.encodings.web\\4.7.2\\system.text.encodings.web.4.7.2.nupkg.sha512",
+    "C:\\Users\\ennxk\\.nuget\\packages\\system.text.json\\4.6.0\\system.text.json.4.6.0.nupkg.sha512"
+  ],
   "logs": []
 }

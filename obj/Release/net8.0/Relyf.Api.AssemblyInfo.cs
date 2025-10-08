@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Relyf.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+69351d650e83c39d00dea26f6de2912884535be2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4dea6c1b2e8b1f8a5e0a0e29b721ab64a37241f8")]
 [assembly: System.Reflection.AssemblyProductAttribute("Relyf.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Relyf.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

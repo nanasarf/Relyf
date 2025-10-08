@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Relyf.Api", "Relyf.Api.csproj", "{F8E338C6-2218-DD07-EE41-790E18289919}"
+EndProject
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Relyf.Database", "..\Relyf.Database\Relyf.Database.sqlproj", "{728CC77E-C05A-46E4-B696-EF3E957E2CA5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Relyf.Service", "..\Relyf.Service\Relyf.Service.csproj", "{C71C2706-F3B6-8F87-615E-2EEFA239F4EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Relyf.Repository", "..\Relyf.Repository\Relyf.Repository.csproj", "{3F0D4DFE-D92F-AAD2-DFEE-11D0C5021664}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F8E338C6-2218-DD07-EE41-790E18289919}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8E338C6-2218-DD07-EE41-790E18289919}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8E338C6-2218-DD07-EE41-790E18289919}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8E338C6-2218-DD07-EE41-790E18289919}.Release|Any CPU.Build.0 = Release|Any CPU
+		{728CC77E-C05A-46E4-B696-EF3E957E2CA5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{728CC77E-C05A-46E4-B696-EF3E957E2CA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{728CC77E-C05A-46E4-B696-EF3E957E2CA5}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{728CC77E-C05A-46E4-B696-EF3E957E2CA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{728CC77E-C05A-46E4-B696-EF3E957E2CA5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{728CC77E-C05A-46E4-B696-EF3E957E2CA5}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{C71C2706-F3B6-8F87-615E-2EEFA239F4EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C71C2706-F3B6-8F87-615E-2EEFA239F4EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C71C2706-F3B6-8F87-615E-2EEFA239F4EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C71C2706-F3B6-8F87-615E-2EEFA239F4EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F0D4DFE-D92F-AAD2-DFEE-11D0C5021664}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F0D4DFE-D92F-AAD2-DFEE-11D0C5021664}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F0D4DFE-D92F-AAD2-DFEE-11D0C5021664}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F0D4DFE-D92F-AAD2-DFEE-11D0C5021664}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DCA062BC-9EB6-4D8C-9036-F5B8A3FAA018}
+	EndGlobalSection
+EndGlobal
