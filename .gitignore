@@ -1,0 +1,30 @@
+# build
+bin/
+obj/
+out/
+TestResult*
+*.nupkg
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# SQL/VS database caches & local DB files
+*.dbmdl
+*.mdf
+*.ldf
+*.bak
+*.dacpac
+*.sqlproj.user
+
+# logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# local configs/secrets
+appsettings.*.local.json
+appsettings.Development.json
+secrets.json

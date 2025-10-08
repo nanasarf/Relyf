@@ -1,0 +1,6 @@
+@Relyf_HostAddress = http://localhost:5157
+
+GET {{Relyf_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
