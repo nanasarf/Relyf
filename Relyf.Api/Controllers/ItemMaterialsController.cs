@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Relyf.Repository.Dapper;
+using System.Security.Claims;
 
 namespace Relyf.Api.Controllers;
 
@@ -8,64 +9,53 @@ namespace Relyf.Api.Controllers;
 [Route("api/items/{itemId:int}/materials")]
 public sealed class ItemMaterialsController : ControllerBase
 {
-    private readonly RelyfDbContext _db;
-    public ItemMaterialsController(RelyfDbContext db) => _db = db;
+    private readonly IItemMaterialRepository _repo;
+    private readonly ILookupRepository _lookup;
+    public ItemMaterialsController(IItemMaterialRepository repo, ILookupRepository lookup)
+    {
+        _repo = repo;
+        _lookup = lookup;
+    }
+
+    private int GetUserId()
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(sub, out var userId))
+            throw new UnauthorizedAccessException("User id not found in token.");
+        return userId;
+    }
 
     // RENAMED: avoid Swagger type-name collision
     public sealed record ItemMaterialUpsertRequest(int MaterialId, byte? PercentShare);
 
     // PUT /api/items/{itemId}/materials
     [HttpPut]
+    [Authorize]
     public async Task<IActionResult> Upsert(int itemId, [FromBody] ItemMaterialUpsertRequest req, CancellationToken ct)
     {
-        var itemOk = await _db.Items.AnyAsync(i => i.ItemId == itemId, ct);
-        var matOk = await _db.Materials.AnyAsync(m => m.MaterialId == req.MaterialId, ct);
-        if (!itemOk || !matOk) return BadRequest("Invalid itemId or materialId.");
+        if (!await _lookup.ItemExistsAsync(itemId, ct)) return BadRequest("Invalid itemId.");
+        if (!await _lookup.MaterialExistsAsync(req.MaterialId, ct)) return BadRequest("Invalid materialId.");
+        if (req.PercentShare is < 0 or > 100) return BadRequest("PercentShare must be between 0 and 100.");
 
-        if (req.PercentShare is < 0 or > 100)
-            return BadRequest("PercentShare must be between 0 and 100.");
-
-        var row = await _db.ItemMaterials.FindAsync(new object[] { itemId, req.MaterialId }, ct);
-        if (row is null)
-        {
-            row = new ItemMaterial { ItemId = itemId, MaterialId = req.MaterialId, PercentShare = req.PercentShare };
-            _db.ItemMaterials.Add(row);
-        }
-        else
-        {
-            row.PercentShare = req.PercentShare;
-        }
-        await _db.SaveChangesAsync(ct);
-        return NoContent();
+        var n = await _repo.UpsertAsync(itemId, req.MaterialId, req.PercentShare, GetUserId(), ct);
+        return n == 0 ? NotFound("Item not found or not owned by user.") : NoContent();
     }
 
     // GET /api/items/{itemId}/materials
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> List(int itemId, CancellationToken ct)
     {
-        var list = await _db.ItemMaterials.AsNoTracking()
-            .Where(x => x.ItemId == itemId)
-            .Join(_db.Materials, im => im.MaterialId, m => m.MaterialId, (im, m) => new
-            {
-                m.MaterialId,
-                m.Name,
-                m.Category,
-                im.PercentShare
-            })
-            .OrderBy(x => x.Name)
-            .ToListAsync(ct);
-
+        var list = await _repo.ListAsync(itemId, ct);
         return Ok(list);
     }
 
     // DELETE /api/items/{itemId}/materials/{materialId}
     [HttpDelete("{materialId:int}")]
+    [Authorize]
     public async Task<IActionResult> Remove(int itemId, int materialId, CancellationToken ct)
     {
-        var row = await _db.ItemMaterials.FindAsync(new object[] { itemId, materialId }, ct);
-        if (row is null) return NotFound();
-        _db.ItemMaterials.Remove(row);
-        await _db.SaveChangesAsync(ct);
-        return NoContent();
+        var n = await _repo.RemoveAsync(itemId, materialId, GetUserId(), ct);
+        return n == 0 ? NotFound() : NoContent();
     }
 }

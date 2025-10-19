@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+using Relyf.Repository.Dapper;
+using Relyf.Repository.Dapper.Models;
 
 namespace Relyf.Api.Controllers;
 
@@ -8,8 +8,8 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class DropoffSitesController : ControllerBase
 {
-    private readonly RelyfDbContext _db;
-    public DropoffSitesController(RelyfDbContext db) => _db = db;
+    private readonly IDropoffSiteRepository _sites;
+    public DropoffSitesController(IDropoffSiteRepository sites) => _sites = sites;
 
     public sealed record CreateSiteRequest(
         string Name, string? AddressLine1, string? City, string? Region,
@@ -17,53 +17,49 @@ public sealed class DropoffSitesController : ControllerBase
 
     // POST /api/dropoffsites
     [HttpPost]
-    public async Task<ActionResult<DropoffSite>> Create([FromBody] CreateSiteRequest req, CancellationToken ct)
+    public async Task<IActionResult> Create([FromBody] CreateSiteRequest req, CancellationToken ct)
     {
-        var site = new DropoffSite
+        var name = req.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name)) return BadRequest("Name is required.");
+
+        var id = await _sites.CreateAsync(new DropoffSiteRecord
         {
-            Name = req.Name.Trim(),
+            Name = name,
             AddressLine1 = req.AddressLine1?.Trim(),
             City = req.City?.Trim(),
             Region = req.Region?.Trim(),
             PostalCode = req.PostalCode?.Trim(),
             CountryCode = req.CountryCode?.Trim(),
-            AcceptedNotes = req.AcceptedNotes?.Trim(),
-        };
-        if (string.IsNullOrWhiteSpace(site.Name)) return BadRequest("Name is required.");
+            AcceptedNotes = req.AcceptedNotes?.Trim()
+        }, ct);
 
-        _db.DropoffSites.Add(site);
-        await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(Get), new { id = site.DropoffSiteId }, site);
+        var created = await _sites.GetAsync(id, ct);
+        if (created is null)
+        {
+            // minimal fallback payload if the re-fetch ever returns null
+            return CreatedAtAction(nameof(Get), new { id }, new DropoffSiteRecord
+            {
+                DropoffSiteId = id,
+                Name = name
+            });
+        }
+        return CreatedAtAction(nameof(Get), new { id }, created);
+
     }
 
     // GET /api/dropoffsites/{id}
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<DropoffSite>> Get(int id, CancellationToken ct)
+    public async Task<IActionResult> Get(int id, CancellationToken ct)
     {
-        var s = await _db.DropoffSites.AsNoTracking().FirstOrDefaultAsync(x => x.DropoffSiteId == id, ct);
-        return s is null ? NotFound() : s;
+        var row = await _sites.GetAsync(id, ct);
+        return row is null ? NotFound() : Ok(row);
     }
 
     // GET /api/dropoffsites?city=&q=
     [HttpGet]
-    public async Task<IEnumerable<DropoffSite>> Search([FromQuery] string? city, [FromQuery] string? q, CancellationToken ct = default)
+    public async Task<IActionResult> Search([FromQuery] string? city, [FromQuery] string? q, CancellationToken ct = default)
     {
-        var query = _db.DropoffSites.AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(city))
-        {
-            var c = city.Trim();
-            query = query.Where(x => x.City != null && x.City.Contains(c));
-        }
-
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var s = q.Trim();
-            query = query.Where(x =>
-                x.Name.Contains(s) ||
-                (x.AcceptedNotes != null && x.AcceptedNotes.Contains(s)));
-        }
-
-        return await query.OrderBy(x => x.Name).Take(100).ToListAsync(ct);
+        var rows = await _sites.SearchAsync(city, q, 100, ct);
+        return Ok(rows);
     }
 }

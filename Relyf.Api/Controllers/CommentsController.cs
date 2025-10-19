@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Relyf.Repository.Dapper;
+using System.Security.Claims;
 
 namespace Relyf.Api.Controllers;
 
@@ -8,67 +9,67 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class CommentsController : ControllerBase
 {
-    private static readonly HashSet<string> AllowedTargets = ["Idea", "Project"];
-    private readonly RelyfDbContext _db;
-    public CommentsController(RelyfDbContext db) => _db = db;
+    private static readonly HashSet<string> AllowedTargets = new(StringComparer.OrdinalIgnoreCase) { "Idea", "Project" };
 
-    public sealed record CreateCommentRequest(int UserId, string TargetType, int TargetId, string Body);
+    private readonly ILookupRepository _lookup;
+    private readonly ICommentRepository _comments;
 
-    // POST /api/comments
+    public CommentsController(ILookupRepository lookup, ICommentRepository comments)
+    {
+        _lookup = lookup;
+        _comments = comments;
+    }
+
+    private int GetUserId()
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(sub, out var userId))
+            throw new UnauthorizedAccessException("User id not found in token.");
+        return userId;
+    }
+
+    public sealed record CreateCommentRequest(string TargetType, int TargetId, string Body);
+
+    // POST /api/comments   (JWT required; uses token userId)
     [HttpPost]
+    [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateCommentRequest req, CancellationToken ct)
     {
         if (!AllowedTargets.Contains(req.TargetType)) return BadRequest("TargetType must be Idea or Project.");
         if (string.IsNullOrWhiteSpace(req.Body)) return BadRequest("Body is required.");
-        if (!await _db.Users.AnyAsync(u => u.UserId == req.UserId, ct)) return BadRequest("Invalid UserId.");
-        var targetOk = req.TargetType == "Idea"
-            ? await _db.AiIdeas.AnyAsync(i => i.IdeaId == req.TargetId, ct)
-            : await _db.Projects.AnyAsync(p => p.ProjectId == req.TargetId, ct);
+
+        // target existence via lookup
+        var targetOk = req.TargetType.Equals("Idea", StringComparison.OrdinalIgnoreCase)
+            ? await _lookup.IdeaExistsAsync(req.TargetId, ct)
+            : await _lookup.ProjectExistsAsync(req.TargetId, ct);
         if (!targetOk) return BadRequest("Target not found.");
 
-        var row = new Comment
-        {
-            UserId = req.UserId,
-            TargetType = req.TargetType,
-            TargetId = req.TargetId,
-            Body = req.Body.Trim()
-            // CreatedAtUtc set by DB default
-        };
-        _db.Comments.Add(row);
-        await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(ListForTarget), new { targetType = row.TargetType, targetId = row.TargetId }, row);
+        var userId = GetUserId();
+        var id = await _comments.CreateAsync(userId, req.TargetType, req.TargetId, req.Body.Trim(), ct);
+        // return minimal payload (your original returned EF row)
+        return CreatedAtAction(nameof(ListForTarget), new { targetType = req.TargetType, targetId = req.TargetId }, new { commentId = id });
     }
 
-    // GET /api/comments/{targetType}/{targetId}?take=50
+    // GET /api/comments/{targetType}/{targetId}?take=50  (public)
     [HttpGet("{targetType}/{targetId:int}")]
+    [AllowAnonymous]
     public async Task<IActionResult> ListForTarget(string targetType, int targetId, [FromQuery] int take = 50, CancellationToken ct = default)
     {
         if (!AllowedTargets.Contains(targetType)) return BadRequest("Invalid targetType.");
         take = Math.Clamp(take, 1, 200);
 
-        var list = await _db.Comments.AsNoTracking()
-            .Where(c => c.TargetType == targetType && c.TargetId == targetId)
-            .OrderByDescending(c => c.CommentId)
-            .Take(take)
-            .Select(c => new {
-                c.CommentId,
-                c.UserId,
-                c.Body,
-                c.CreatedAtUtc
-            })
-            .ToListAsync(ct);
-
-        return Ok(list);
+        var list = await _comments.ListForTargetAsync(targetType, targetId, take, ct);
+        var shaped = list.Select(c => new { c.CommentId, c.UserId, c.Body, c.CreatedAtUtc });
+        return Ok(shaped);
     }
 
-    // DELETE /api/comments/{commentId}
+    // DELETE /api/comments/{commentId}  (JWT required; owner only)
     [HttpDelete("{commentId:int}")]
+    [Authorize]
     public async Task<IActionResult> Delete(int commentId, CancellationToken ct)
     {
-        var row = await _db.Comments.FirstOrDefaultAsync(c => c.CommentId == commentId, ct);
-        if (row is null) return NotFound();
-        _db.Comments.Remove(row);
-        await _db.SaveChangesAsync(ct);
-        return NoContent();
+        var userId = GetUserId();
+        var n = await _comments.DeleteIfOwnerAsync(commentId, userId, ct);
+        return n == 0 ? NotFound() : NoContent();
     }
 }

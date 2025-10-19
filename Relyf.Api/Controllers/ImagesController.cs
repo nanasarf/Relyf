@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+using Relyf.Repository.Dapper;
 
 namespace Relyf.Api.Controllers;
 
@@ -8,15 +7,15 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class ImagesController : ControllerBase
 {
-    private static readonly HashSet<string> AllowedOwners = ["Item", "Idea", "Project"];
-    private static readonly HashSet<string> AllowedSources = ["upload", "url", "cloudinary"];
+    private static readonly HashSet<string> AllowedOwners = new(StringComparer.OrdinalIgnoreCase) { "Item", "Idea", "Project" };
+    private static readonly HashSet<string> AllowedSources = new(StringComparer.OrdinalIgnoreCase) { "upload", "url", "cloudinary" };
 
-    private readonly RelyfDbContext _db;
-    public ImagesController(RelyfDbContext db) => _db = db;
+    private readonly IImageRepository _repo;
+    public ImagesController(IImageRepository repo) => _repo = repo;
 
     public sealed record AddImageRequest(string OwnerType, int OwnerId, string Source, string Url, string? AltText);
 
-    // POST /api/images  -> attach image to an owner
+    // POST /api/images
     [HttpPost]
     public async Task<IActionResult> Add([FromBody] AddImageRequest req, CancellationToken ct)
     {
@@ -24,20 +23,11 @@ public sealed class ImagesController : ControllerBase
         if (!AllowedSources.Contains(req.Source)) return BadRequest("Source must be upload, url, or cloudinary.");
         if (string.IsNullOrWhiteSpace(req.Url)) return BadRequest("Url is required.");
 
-        // verify owner exists
-        var ok = req.OwnerType switch
-        {
-            "Item" => await _db.Items.AnyAsync(x => x.ItemId == req.OwnerId, ct),
-            "Idea" => await _db.AiIdeas.AnyAsync(x => x.IdeaId == req.OwnerId, ct),
-            "Project" => await _db.Projects.AnyAsync(x => x.ProjectId == req.OwnerId, ct),
-            _ => false
-        };
-        if (!ok) return BadRequest("Owner not found.");
+        if (!await _repo.OwnerExistsAsync(req.OwnerType, req.OwnerId))
+            return BadRequest("Owner not found.");
 
-        var img = new Image { OwnerType = req.OwnerType, OwnerId = req.OwnerId, Source = req.Source, Url = req.Url, AltText = req.AltText };
-        _db.Images.Add(img);
-        await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(List), new { ownerType = img.OwnerType, ownerId = img.OwnerId }, img);
+        var id = await _repo.AddAsync(req.OwnerType, req.OwnerId, req.Source, req.Url, req.AltText);
+        return CreatedAtAction(nameof(List), new { ownerType = req.OwnerType, ownerId = req.OwnerId }, new { imageId = id });
     }
 
     // GET /api/images/{ownerType}/{ownerId}
@@ -45,10 +35,7 @@ public sealed class ImagesController : ControllerBase
     public async Task<IActionResult> List(string ownerType, int ownerId, CancellationToken ct)
     {
         if (!AllowedOwners.Contains(ownerType)) return BadRequest("Invalid ownerType.");
-        var list = await _db.Images.AsNoTracking()
-            .Where(i => i.OwnerType == ownerType && i.OwnerId == ownerId)
-            .OrderByDescending(i => i.ImageId)
-            .ToListAsync(ct);
+        var list = await _repo.ListByOwnerAsync(ownerType, ownerId);
         return Ok(list);
     }
 
@@ -56,10 +43,7 @@ public sealed class ImagesController : ControllerBase
     [HttpDelete("{imageId:int}")]
     public async Task<IActionResult> Delete(int imageId, CancellationToken ct)
     {
-        var img = await _db.Images.FirstOrDefaultAsync(i => i.ImageId == imageId, ct);
-        if (img is null) return NotFound();
-        _db.Images.Remove(img);
-        await _db.SaveChangesAsync(ct);
-        return NoContent();
+        var n = await _repo.DeleteAsync(imageId);
+        return n == 0 ? NotFound() : NoContent();
     }
 }

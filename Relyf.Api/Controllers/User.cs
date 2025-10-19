@@ -1,29 +1,42 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api;
-using Relyf.Api.Models;
+using Relyf.Repository.Dapper;
+using System.ComponentModel.DataAnnotations;
 
 namespace Relyf.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController : ControllerBase
+public sealed class UsersController : ControllerBase
 {
-    private readonly RelyfDbContext _db;
-    public UsersController(RelyfDbContext db) => _db = db;
+    private readonly IUserRepository _users;
 
+    public UsersController(IUserRepository users) => _users = users;
+
+    // DTO — keeps the API surface minimal and stable
+    public sealed record CreateUserDto(
+        [Required, EmailAddress, StringLength(320)] string Email,
+        [Required, StringLength(120)] string DisplayName,
+        [StringLength(10)] string? CountryCode
+    );
+
+    /// <summary>Create a user.</summary>
     [HttpPost]
-    public async Task<ActionResult<User>> Create(User user)
+    public async Task<IActionResult> Create([FromBody] CreateUserDto dto, CancellationToken ct)
     {
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = user.UserId }, user);
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        // Create and return the new id
+        var newId = await _users.CreateAsync(dto.Email.Trim(), dto.DisplayName.Trim(), dto.CountryCode?.Trim());
+        // Optionally re-fetch for return payload
+        var created = await _users.GetByIdAsync(newId);
+        return CreatedAtAction(nameof(GetById), new { id = newId }, (object?)created ?? new { userId = newId });
     }
 
+    /// <summary>Get a user by id.</summary>
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<User>> GetById(int id)
+    public async Task<IActionResult> GetById(int id, CancellationToken ct)
     {
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == id);
-        return user is null ? NotFound() : user;
+        var row = await _users.GetByIdAsync(id);
+        return row is null ? NotFound() : Ok(row);
     }
 }

@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Relyf.Repository.Dapper;
+using System.Security.Claims;
 
 namespace Relyf.Api.Controllers;
 
@@ -8,60 +9,58 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class SavesController : ControllerBase
 {
-    private readonly RelyfDbContext _db;
-    public SavesController(RelyfDbContext db) => _db = db;
+    private readonly ISaveRepository _saves;
+    private readonly ILookupRepository _lookup;
 
-    public sealed record SaveRequest(int UserId, int IdeaId);
+    public SavesController(ISaveRepository saves, ILookupRepository lookup)
+    {
+        _saves = saves;
+        _lookup = lookup;
+    }
+
+    private int GetUserId()
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(sub, out var userId))
+            throw new UnauthorizedAccessException("User id not found in token.");
+        return userId;
+    }
+
+    public sealed record SaveRequest(int IdeaId);
 
     // PUT /api/saves  -> idempotent save (creates if missing)
     [HttpPut]
+    [Authorize]
     public async Task<IActionResult> Put([FromBody] SaveRequest req, CancellationToken ct)
     {
-        var userOk = await _db.Users.AnyAsync(u => u.UserId == req.UserId, ct);
-        var ideaOk = await _db.AiIdeas.AnyAsync(i => i.IdeaId == req.IdeaId, ct);
-        if (!userOk || !ideaOk) return BadRequest("Invalid UserId or IdeaId.");
+        // Ensure idea exists to avoid FK violations
+        if (!await _lookup.IdeaExistsAsync(req.IdeaId, ct))
+            return BadRequest("Invalid IdeaId.");
 
-        var exists = await _db.SavedIdeas.FindAsync(new object[] { req.UserId, req.IdeaId }, ct);
-        if (exists is null)
-        {
-            _db.SavedIdeas.Add(new SavedIdea { UserId = req.UserId, IdeaId = req.IdeaId, SavedAtUtc = DateTime.UtcNow });
-            await _db.SaveChangesAsync(ct);
-            return CreatedAtAction(nameof(ListForUser), new { userId = req.UserId }, null);
-        }
-        return NoContent(); // already saved
+        var userId = GetUserId();
+        var inserted = await _saves.PutAsync(userId, req.IdeaId, ct);
+        return inserted ? CreatedAtAction(nameof(ListForUser), new { userId }, null) : NoContent();
     }
 
     // DELETE /api/saves  -> unsave
     [HttpDelete]
+    [Authorize]
     public async Task<IActionResult> Delete([FromBody] SaveRequest req, CancellationToken ct)
     {
-        var found = await _db.SavedIdeas.FindAsync(new object[] { req.UserId, req.IdeaId }, ct);
-        if (found is null) return NotFound();
-        _db.SavedIdeas.Remove(found);
-        await _db.SaveChangesAsync(ct);
-        return NoContent();
+        var userId = GetUserId();
+        var n = await _saves.DeleteAsync(userId, req.IdeaId, ct);
+        return n == 0 ? NotFound() : NoContent();
     }
 
-    // GET /api/saves/user/1 -> list saved ideas for a user (lightweight)
+    // GET /api/saves/user/{userId} -> list saved ideas (must match caller)
     [HttpGet("user/{userId:int}")]
+    [Authorize]
     public async Task<IActionResult> ListForUser(int userId, CancellationToken ct)
     {
-        var list = await _db.SavedIdeas
-            .AsNoTracking()
-            .Where(s => s.UserId == userId)
-            .Join(_db.AiIdeas, s => s.IdeaId, i => i.IdeaId, (s, i) => new
-            {
-                i.IdeaId,
-                i.Title,
-                Preview = i.IdeaText.Length > 140
-                    ? i.IdeaText.Substring(0, 140) + "..."
-                    : i.IdeaText,
-                s.SavedAtUtc
-            })
-            .OrderByDescending(x => x.SavedAtUtc)
-            .ToListAsync(ct);
+        // Prevent IDOR: the requested userId must be the token's userId
+        if (userId != GetUserId()) return Forbid();
 
+        var list = await _saves.ListForUserAsync(userId, ct);
         return Ok(list);
     }
-
 }

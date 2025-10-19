@@ -230,6 +230,16 @@ public class RelyfDbContext(DbContextOptions<RelyfDbContext> options) : DbContex
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
         });
 
+        b.Entity<UserCredential>(e =>
+        {
+            e.ToTable("UserCredential");
+            e.HasKey(x => x.UserId);
+            e.Property(x => x.PasswordHash).IsRequired();
+            e.Property(x => x.PasswordSalt).IsRequired();
+            e.Property(x => x.CreatedUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+            e.HasOne(x => x.User).WithOne().HasForeignKey<UserCredential>(x => x.UserId);
+        });
+
 
     }
 
@@ -253,6 +263,7 @@ public class RelyfDbContext(DbContextOptions<RelyfDbContext> options) : DbContex
     public DbSet<ItemMaterial> ItemMaterials => Set<ItemMaterial>();
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
 
 
 

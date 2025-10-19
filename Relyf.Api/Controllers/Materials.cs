@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+using Relyf.Repository.Dapper;
 
 namespace Relyf.Api.Controllers;
 
@@ -8,43 +7,31 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class MaterialsController : ControllerBase
 {
-    private readonly RelyfDbContext _db;
-    public MaterialsController(RelyfDbContext db) => _db = db;
+    private readonly IMaterialRepository _materials;
+    public MaterialsController(IMaterialRepository materials) => _materials = materials;
 
     // GET /api/materials?search=cotton
     [HttpGet]
-    public async Task<IEnumerable<Material>> Search([FromQuery] string? search, CancellationToken ct)
+    public async Task<IActionResult> Search([FromQuery] string? search, CancellationToken ct)
     {
-        var q = _db.Materials.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var s = search.Trim();
-            q = q.Where(m => m.Name.Contains(s) || (m.Category != null && m.Category.Contains(s)));
-        }
-        return await q.OrderBy(m => m.Name).Take(100).ToListAsync(ct);
+        var rows = await _materials.SearchAsync(search, 100, ct);
+        return Ok(rows);
     }
 
-    // POST /api/materials  -> create a new catalog material
     public sealed record CreateMaterialRequest(string Name, string? Category, byte? Recyclability, string? Notes);
 
+    // POST /api/materials
     [HttpPost]
-    public async Task<ActionResult<Material>> Create([FromBody] CreateMaterialRequest req, CancellationToken ct)
+    public async Task<IActionResult> Create([FromBody] CreateMaterialRequest req, CancellationToken ct)
     {
         var name = req.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name)) return BadRequest("Name is required.");
 
-        var exists = await _db.Materials.AnyAsync(m => m.Name == name, ct);
-        if (exists) return Conflict("Material already exists.");
+        if (await _materials.ExistsByNameAsync(name, ct))
+            return Conflict("Material already exists.");
 
-        var mat = new Material
-        {
-            Name = name,
-            Category = req.Category?.Trim(),
-            Recyclability = req.Recyclability,
-            Notes = req.Notes?.Trim()
-        };
-        _db.Materials.Add(mat);
-        await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(Search), new { search = mat.Name }, mat);
+        var id = await _materials.CreateAsync(name, req.Category?.Trim(), req.Recyclability, req.Notes?.Trim(), ct);
+        // return something close to what you had
+        return CreatedAtAction(nameof(Search), new { search = name }, new { MaterialId = id, Name = name });
     }
 }

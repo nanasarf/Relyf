@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Relyf.Api.Models;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Relyf.Repository.Dapper;
 using Relyf.Service.Interfaces;
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -13,29 +14,46 @@ namespace Relyf.Api.Controllers;
 public sealed class IdeasController : ControllerBase
 {
     private readonly IUpcycleIdeaService _service;
-    private readonly RelyfDbContext _db;
+    private readonly ILookupRepository _lookup;
+    private readonly ICoherePromptRepository _prompts;
+    private readonly IApiRequestLogRepository _logs;
+    private readonly IAiIdeaRepository _ideas;
 
-    public IdeasController(IUpcycleIdeaService service, RelyfDbContext db)
+    public IdeasController(IUpcycleIdeaService service,
+                           ILookupRepository lookup,
+                           ICoherePromptRepository prompts,
+                           IApiRequestLogRepository logs,
+                           IAiIdeaRepository ideas)
     {
         _service = service;
-        _db = db;
+        _lookup = lookup;
+        _prompts = prompts;
+        _logs = logs;
+        _ideas = ideas;
     }
 
-    // ---- your existing GET stays exactly the same ----
+    // ---------- helper ----------
+    private int GetUserId()
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(sub, out var userId))
+            throw new UnauthorizedAccessException("User id not found in token.");
+        return userId;
+    }
+
+    // ---------- your existing “preview” endpoint stays open (no auth) ----------
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> Get([FromQuery] string item, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(item))
             return BadRequest("Query param 'item' is required and must not be empty.");
-
         var trimmedItem = item.Trim();
         if (trimmedItem.Length < 2)
             return BadRequest("Query param 'item' must be at least 2 characters.");
 
         var messages = new List<(string Role, string Content)>
-        {
-            ("user", $"List creative, safe ways to reuse or upcycle: {trimmedItem}. Return as a numbered list.")
-        };
+        { ("user", $"List creative, safe ways to reuse or upcycle: {trimmedItem}. Return as a numbered list.") };
 
         var ideas = await _service.GetIdeasFromMessagesAsync(messages, ct);
         if (string.IsNullOrWhiteSpace(ideas))
@@ -44,11 +62,10 @@ public sealed class IdeasController : ControllerBase
         return Ok(new { ideas });
     }
 
-    // ---- NEW: persistence-friendly endpoint ----
+    // ---------- Dapper persistence endpoint (JWT required) ----------
     public sealed record GenerateIdeaRequest(
-        int UserId,
         int? ItemId,
-        string PromptText,          // required
+        string PromptText,
         string? Model,
         decimal? Temperature,
         decimal? TopP,
@@ -65,42 +82,31 @@ public sealed class IdeasController : ControllerBase
     );
 
     [HttpPost("generate")]
+    [Authorize]
     public async Task<ActionResult<GenerateIdeaResponse>> Generate([FromBody] GenerateIdeaRequest req, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.PromptText))
             return BadRequest("PromptText is required.");
 
-        // FK sanity
-        if (!await _db.Users.AnyAsync(u => u.UserId == req.UserId, ct))
-            return BadRequest("UserId does not exist.");
-        if (req.ItemId.HasValue && !await _db.Items.AnyAsync(i => i.ItemId == req.ItemId.Value, ct))
-            return BadRequest("ItemId does not exist.");
+        var userId = GetUserId();
 
-        // 1) Save CoherePrompt
-        var prompt = new CoherePrompt
-        {
-            UserId = req.UserId,
-            ItemId = req.ItemId,
-            Model = req.Model,
-            Temperature = req.Temperature,
-            TopP = req.TopP,
-            PromptText = req.PromptText
-        };
-        _db.CoherePrompts.Add(prompt);
-        await _db.SaveChangesAsync(ct);
+        // FK & ownership checks via Dapper
+        if (!await _lookup.UserExistsAsync(userId, ct))
+            return BadRequest("Authenticated user not found.");
+        if (req.ItemId.HasValue && !await _lookup.ItemOwnedByUserAsync(req.ItemId.Value, userId, ct))
+            return BadRequest("Item does not exist or is not owned by the current user.");
 
-        // 2) Call your existing service using its multi-message pattern
+        // 1) save CoherePrompt
+        var coherePromptId = await _prompts.CreateAsync(
+            userId, req.ItemId, req.Model, req.Temperature, req.TopP, req.PromptText, ct);
+
+        // 2) call Cohere via your service
         var sw = Stopwatch.StartNew();
-        var messages = new List<(string Role, string Content)>
-        {
-            ("user", req.PromptText)
-        };
-
         string ideaText;
-        int status = 200;
-
+        var status = 200;
         try
         {
+            var messages = new List<(string Role, string Content)> { ("user", req.PromptText) };
             ideaText = await _service.GetIdeasFromMessagesAsync(messages, ct);
         }
         catch
@@ -111,60 +117,45 @@ public sealed class IdeasController : ControllerBase
         finally
         {
             sw.Stop();
-            // 4) Log API call (minimal — you can extend with tokens if your service exposes them)
-            byte[]? hash = null;
-            using (var sha = SHA256.Create())
-                hash = sha.ComputeHash(Encoding.UTF8.GetBytes(req.PromptText));
+            byte[] hash;
+            using var sha = SHA256.Create();
+            hash = sha.ComputeHash(Encoding.UTF8.GetBytes(req.PromptText));
 
-            _db.ApiRequestLogs.Add(new ApiRequestLog
-            {
-                UserId = req.UserId,
-                Provider = "cohere",
-                Endpoint = "/v2/chat",
-                Model = req.Model ?? "command-r-plus",
-                PromptHash = hash,
-                TokensIn = null,
-                TokensOut = null,
-                StatusCode = status,
-                DurationMs = (int)sw.ElapsedMilliseconds
-            });
-            await _db.SaveChangesAsync(ct);
+            await _logs.CreateAsync(
+                userId: userId,
+                provider: "cohere",
+                endpoint: "/v2/chat",
+                model: req.Model ?? "command-r-plus",
+                promptHash: hash,
+                tokensIn: null,
+                tokensOut: null,
+                statusCode: status,
+                durationMs: (int)sw.ElapsedMilliseconds,
+                ct: ct
+            );
         }
 
         if (string.IsNullOrWhiteSpace(ideaText))
             return BadRequest("No ideas generated by the AI.");
 
-        // 3) Store AiIdea
+        // 3) store AiIdea
         var title = string.IsNullOrWhiteSpace(req.TitleHint) ? "Upcycling Idea" : req.TitleHint.Trim();
-        var idea = new AiIdea
-        {
-            CoherePromptId = prompt.CoherePromptId,
-            ItemId = req.ItemId,
-            UserId = req.UserId,
-            Title = title,
-            IdeaText = ideaText,
-            Difficulty = null,
-            EstTimeMin = null,
-            EstCostUSD = null,
-            TokensIn = null,
-            TokensOut = null,
-            ApiLatencyMs = (int)sw.ElapsedMilliseconds
-        };
-        _db.AiIdeas.Add(idea);
-        await _db.SaveChangesAsync(ct);
+        var ideaId = await _ideas.CreateAsync(userId, req.ItemId ?? 0, title, ideaText, coherePromptId);
 
         return CreatedAtAction(
             nameof(GetIdeaById),
-            new { id = idea.IdeaId },
-            new GenerateIdeaResponse(idea.IdeaId, idea.Title, idea.IdeaText, prompt.CoherePromptId, idea.ItemId, idea.UserId)
+            new { id = ideaId },
+            new GenerateIdeaResponse(ideaId, title, ideaText, coherePromptId, req.ItemId, userId)
         );
     }
 
-    // fetch the stored idea
+    // fetch stored idea (JWT required & ownership enforced)
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<AiIdea>> GetIdeaById(int id, CancellationToken ct)
+    [Authorize]
+    public async Task<ActionResult<object>> GetIdeaById(int id, CancellationToken ct)
     {
-        var row = await _db.AiIdeas.AsNoTracking().FirstOrDefaultAsync(x => x.IdeaId == id, ct);
-        return row is null ? NotFound() : row;
+        var userId = GetUserId();
+        var row = await _ideas.GetByIdAsync(id, userId);
+        return row is null ? NotFound() : Ok(row);
     }
 }
