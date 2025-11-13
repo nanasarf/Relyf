@@ -1,0 +1,1591 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Relyf API",
+    "description": "API for the Relyf upcycling platform - connecting users with creative ways to reuse and repurpose items",
+    "version": "v1",
+    "contact": {
+      "name": "Relyf Team",
+      "url": "https://github.com/nanasarf/Relyf"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://localhost:7139",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/api/Auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "description": "Create a new user account with email, password, username, and display name",
+        "operationId": "Register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "email": "john@example.com",
+                "password": "SecurePass123!",
+                "userName": "john_doe",
+                "displayName": "John Doe",
+                "countryCode": "US"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input (validation error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Username must be between 3 and 20 characters."
+              }
+            }
+          },
+          "409": {
+            "description": "Email or username already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Username is already taken."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login with email and password",
+        "description": "Authenticate user and receive JWT token",
+        "operationId": "Login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "john@example.com",
+                "password": "SecurePass123!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Email and Password are required."
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Invalid credentials."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/check-username/{userName}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Check if username is available",
+        "description": "Validates username format and checks availability",
+        "operationId": "CheckUsername",
+        "parameters": [
+          {
+            "name": "userName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "john_doe"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Username check result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckUsernameResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user profile by ID",
+        "description": "Retrieve detailed user profile including follower counts and relationship status",
+        "operationId": "GetUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 123
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user profile",
+        "description": "Update user profile information (requires authentication and ownership)",
+        "operationId": "UpdateUserProfile",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 123
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserProfileRequest"
+              },
+              "example": {
+                "userName": "john_doe_updated",
+                "displayName": "John Doe Updated",
+                "bio": "I love upcycling and sustainability!",
+                "avatarUrl": "https://example.com/avatar.jpg"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input (validation error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "error": "Username can only contain letters, numbers, and underscores."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Cannot update other user's profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "error": "Cannot update another user's profile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "error": "User not found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Username already taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "error": "Username is already taken."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/search": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Search users",
+        "description": "Search users by username, display name, or email",
+        "operationId": "SearchUsers",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "john"
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSearchResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/{id}/followers": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user followers",
+        "description": "List all users following this user",
+        "operationId": "GetFollowers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of followers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserProfile"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/{id}/following": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get users that this user follows",
+        "description": "List all users this user is following",
+        "operationId": "GetFollowing",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users being followed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserProfile"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Follow": {
+      "post": {
+        "tags": ["Follow"],
+        "summary": "Follow a user",
+        "description": "Create a follow relationship (requires authentication)",
+        "operationId": "FollowUser",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Follow created successfully"
+          },
+          "400": {
+            "description": "Cannot follow yourself"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Already following this user"
+          }
+        }
+      }
+    },
+    "/api/Follow/{followingId}": {
+      "delete": {
+        "tags": ["Follow"],
+        "summary": "Unfollow a user",
+        "description": "Remove a follow relationship (requires authentication)",
+        "operationId": "UnfollowUser",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "followingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unfollow successful"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Follow relationship not found"
+          }
+        }
+      }
+    },
+    "/api/Follow/check/{followingId}": {
+      "get": {
+        "tags": ["Follow"],
+        "summary": "Check follow status",
+        "description": "Check if current user is following a specific user",
+        "operationId": "CheckFollowStatus",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "followingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Follow status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isFollowing": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/Ideas": {
+      "get": {
+        "tags": ["AI Ideas"],
+        "summary": "Preview AI ideas (public)",
+        "description": "Generate upcycling ideas for an item without authentication",
+        "operationId": "PreviewIdeas",
+        "parameters": [
+          {
+            "name": "item",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2
+            },
+            "example": "glass bottle"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI-generated ideas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ideas": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/Ideas/generate": {
+      "post": {
+        "tags": ["AI Ideas"],
+        "summary": "Generate and save AI ideas",
+        "description": "Generate upcycling ideas using AI and save to database (requires authentication)",
+        "operationId": "GenerateIdea",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateIdeaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Idea created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateIdeaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/Ideas/{id}": {
+      "get": {
+        "tags": ["AI Ideas"],
+        "summary": "Get saved AI idea by ID",
+        "description": "Retrieve a saved AI idea (requires authentication and ownership)",
+        "operationId": "GetIdeaById",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Idea retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateIdeaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Idea not found or not owned by user"
+          }
+        }
+      }
+    },
+    "/api/Projects": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "List user's projects",
+        "description": "Get paginated list of projects for authenticated user",
+        "operationId": "ListProjects",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedProjectsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Create a new project",
+        "description": "Create a new upcycling project (requires authentication)",
+        "operationId": "CreateProject",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/Projects/{id}": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Get project by ID",
+        "description": "Retrieve project details with steps (requires authentication and ownership)",
+        "operationId": "GetProject",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectWithStepsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        }
+      }
+    },
+    "/api/Projects/{id}/steps": {
+      "put": {
+        "tags": ["Projects"],
+        "summary": "Update project steps",
+        "description": "Replace all steps for a project (requires authentication and ownership)",
+        "operationId": "UpdateProjectSteps",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertStepsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Steps updated successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        }
+      }
+    },
+    "/api/Projects/{id}/status": {
+      "patch": {
+        "tags": ["Projects"],
+        "summary": "Update project status",
+        "description": "Change project status (draft, in_progress, completed)",
+        "operationId": "UpdateProjectStatus",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Status updated successfully"
+          },
+          "400": {
+            "description": "Invalid status value"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        }
+      }
+    },
+    "/api/Images": {
+      "post": {
+        "tags": ["Images"],
+        "summary": "Upload image (JSON mode)",
+        "description": "Upload image via base64 data URL, external URL, or Cloudinary",
+        "operationId": "AddImage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddImageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "imageId": {
+                      "type": "integer"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    },
+    "/api/Images/upload": {
+      "post": {
+        "tags": ["Images"],
+        "summary": "Upload image (multipart form-data)",
+        "description": "Upload image file via multipart/form-data (recommended method)",
+        "operationId": "UploadImageFile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file (max 10MB)"
+                  },
+                  "ownerType": {
+                    "type": "string",
+                    "enum": ["Item", "Idea", "Project"],
+                    "description": "Type of owner entity"
+                  },
+                  "ownerId": {
+                    "type": "integer",
+                    "description": "ID of the owner entity"
+                  },
+                  "altText": {
+                    "type": "string",
+                    "description": "Alternative text for accessibility"
+                  }
+                },
+                "required": ["file", "ownerType", "ownerId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "imageId": {
+                      "type": "integer"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "fileName": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file or input"
+          }
+        }
+      }
+    },
+    "/api/Images/{ownerType}/{ownerId}": {
+      "get": {
+        "tags": ["Images"],
+        "summary": "Get images for an owner",
+        "description": "List all images for a specific owner (Item, Idea, or Project)",
+        "operationId": "ListImages",
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["Item", "Idea", "Project"]
+            }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of images",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImageRecord"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid owner type"
+          }
+        }
+      }
+    },
+    "/api/Images/{imageId}": {
+      "delete": {
+        "tags": ["Images"],
+        "summary": "Delete image",
+        "description": "Remove an image from the system",
+        "operationId": "DeleteImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Image deleted successfully"
+          },
+          "404": {
+            "description": "Image not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["email", "password", "userName", "displayName"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 320,
+            "example": "john@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "example": "SecurePass123!"
+          },
+          "userName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 20,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "example": "john_doe"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "John Doe"
+          },
+          "countryCode": {
+            "type": "string",
+            "maxLength": 10,
+            "nullable": true,
+            "example": "US"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "SecurePass123!"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "example": 123
+          },
+          "email": {
+            "type": "string",
+            "example": "john@example.com"
+          },
+          "userName": {
+            "type": "string",
+            "example": "john_doe"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "token": {
+            "type": "string",
+            "description": "JWT authentication token",
+            "example": "eyJhbGciOiJIUzI1NiIs..."
+          }
+        }
+      },
+      "CheckUsernameResponse": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateUserProfileRequest": {
+        "type": "object",
+        "properties": {
+          "userName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 20,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "nullable": true,
+            "description": "New username (optional, must be unique)",
+            "example": "john_doe_updated"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 120,
+            "nullable": true,
+            "description": "New display name (optional)",
+            "example": "John Doe Updated"
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "User biography (optional)",
+            "example": "I love upcycling and sustainability!"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar image URL (optional)",
+            "example": "https://example.com/avatar.jpg"
+          }
+        },
+        "description": "All fields are optional - only provided fields will be updated"
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "countryCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAtUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "followerCount": {
+            "type": "integer"
+          },
+          "followingCount": {
+            "type": "integer"
+          },
+          "projectCount": {
+            "type": "integer"
+          },
+          "ideaCount": {
+            "type": "integer"
+          },
+          "isFollowing": {
+            "type": "boolean",
+            "description": "Whether the requesting user is following this user"
+          },
+          "isFollowedBy": {
+            "type": "boolean",
+            "description": "Whether this user is following the requesting user"
+          }
+        }
+      },
+      "UserSearchResult": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserProfile"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "take": {
+            "type": "integer"
+          }
+        }
+      },
+      "FollowRequest": {
+        "type": "object",
+        "required": ["followingId"],
+        "properties": {
+          "followingId": {
+            "type": "integer",
+            "description": "ID of the user to follow"
+          }
+        }
+      },
+      "GenerateIdeaRequest": {
+        "type": "object",
+        "required": ["promptText"],
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Optional: ID of the item to generate ideas for"
+          },
+          "promptText": {
+            "type": "string",
+            "description": "The prompt to send to the AI",
+            "example": "List creative ways to upcycle plastic bottles"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "description": "AI model to use (default: command-r-plus)",
+            "example": "command-r-plus"
+          },
+          "temperature": {
+            "type": "number",
+            "format": "decimal",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 2,
+            "description": "Controls randomness (0-2)"
+          },
+          "topP": {
+            "type": "number",
+            "format": "decimal",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Controls diversity (0-1)"
+          },
+          "titleHint": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional title for the generated idea",
+            "example": "Plastic Bottle Upcycling Ideas"
+          }
+        }
+      },
+      "GenerateIdeaResponse": {
+        "type": "object",
+        "properties": {
+          "ideaId": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "ideaText": {
+            "type": "string",
+            "description": "AI-generated upcycling ideas"
+          },
+          "coherePromptId": {
+            "type": "integer"
+          },
+          "itemId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "userId": {
+            "type": "integer"
+          }
+        }
+      },
+      "CreateProjectRequest": {
+        "type": "object",
+        "required": ["userId", "title"],
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "description": "User ID (will be overridden by authenticated user)"
+          },
+          "ideaId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Optional: Link to a user-created idea"
+          },
+          "aiIdeaId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Optional: Link to an AI-generated idea"
+          },
+          "title": {
+            "type": "string",
+            "example": "Plastic Bottle Planter"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Turn plastic bottles into hanging planters"
+          }
+        }
+      },
+      "ProjectDto": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "integer"
+          },
+          "ideaId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "aiIdeaId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "userId": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "in_progress", "completed"],
+            "description": "Project status"
+          }
+        }
+      },
+      "ProjectWithStepsDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProjectDto"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "steps": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/StepDto"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "StepDto": {
+        "type": "object",
+        "properties": {
+          "projectStepId": {
+            "type": "integer"
+          },
+          "stepNumber": {
+            "type": "integer"
+          },
+          "instruction": {
+            "type": "string"
+          }
+        }
+      },
+      "PagedProjectsDto": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDto"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "take": {
+            "type": "integer"
+          }
+        }
+      },
+      "UpsertStepsRequest": {
+        "type": "object",
+        "required": ["steps"],
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of step instructions in order",
+            "example": [
+              "Cut the bottle in half",
+              "Punch drainage holes in the bottom",
+              "Fill with soil and plant seeds"
+            ]
+          }
+        }
+      },
+      "UpdateStatusRequest": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["draft", "in_progress", "completed"],
+            "example": "in_progress"
+          }
+        }
+      },
+      "AddImageRequest": {
+        "type": "object",
+        "required": ["ownerType", "ownerId"],
+        "properties": {
+          "ownerType": {
+            "type": "string",
+            "enum": ["Item", "Idea", "Project"],
+            "description": "Type of entity that owns this image"
+          },
+          "ownerId": {
+            "type": "integer",
+            "description": "ID of the owner entity"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "description": "Can be: 'upload', 'url', 'cloudinary', or a base64 data URL"
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "description": "External URL or will be generated for uploads"
+          },
+          "altText": {
+            "type": "string",
+            "nullable": true,
+            "description": "Alternative text for accessibility"
+          }
+        }
+      },
+      "ImageRecord": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "integer"
+          },
+          "ownerType": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "altText": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token in the format: Bearer {token}"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User authentication and registration"
+    },
+    {
+      "name": "Users",
+      "description": "User profile and search operations"
+    },
+    {
+      "name": "Follow",
+      "description": "User follow/unfollow relationships"
+    },
+    {
+      "name": "AI Ideas",
+      "description": "AI-powered upcycling idea generation"
+    },
+    {
+      "name": "Projects",
+      "description": "Upcycling project management"
+    },
+    {
+      "name": "Images",
+      "description": "Image upload and management"
+    }
+  ]
+}

@@ -35,17 +35,48 @@ ELSE SELECT 0;";
         WithConnection(async conn =>
         {
             const string sql = @"
-SELECT  i.IdeaId,
-        i.Title,
-        CASE WHEN LEN(i.IdeaText) > 140 THEN LEFT(i.IdeaText, 140) + '...' ELSE i.IdeaText END AS Preview,
-        s.SavedAtUtc
+SELECT  
+    i.IdeaId,
+    i.Title,
+    CASE WHEN LEN(i.IdeaText) > 140 THEN LEFT(i.IdeaText, 140) + '...' ELSE i.IdeaText END AS Preview,
+    i.ImageUrl,
+    s.SavedAtUtc
 FROM app.SavedIdea s
 JOIN app.AiIdea i ON i.IdeaId = s.IdeaId
 WHERE s.UserId = @userId
+  AND i.IsDeleted = 0
 ORDER BY s.SavedAtUtc DESC;";
-            var rows = (await conn.QueryAsync<SavedIdeaView>(
+            
+            var savedIdeas = (await conn.QueryAsync<SavedIdeaView>(
                 new CommandDefinition(sql, new { userId }, cancellationToken: ct))).ToList();
-            IReadOnlyList<SavedIdeaView> list = rows;
-            return list;
+            
+            // Load tags for each idea
+            if (savedIdeas.Any())
+            {
+                var ideaIds = savedIdeas.Select(s => s.IdeaId).ToArray();
+                
+                const string tagSql = @"
+SELECT it.IdeaId, t.TagName
+FROM app.IdeaTag it
+JOIN app.Tag t ON t.TagId = it.TagId
+WHERE it.IdeaId IN @ideaIds;";
+                
+                var tagRows = await conn.QueryAsync<(int IdeaId, string TagName)>(
+                    new CommandDefinition(tagSql, new { ideaIds }, cancellationToken: ct));
+                
+                var tagsByIdea = tagRows.GroupBy(x => x.IdeaId)
+                    .ToDictionary(g => g.Key, g => g.Select(x => x.TagName).ToList());
+                
+                // Assign tags to saved ideas
+                foreach (var idea in savedIdeas)
+                {
+                    idea.Tags = tagsByIdea.TryGetValue(idea.IdeaId, out var tags) 
+                        ? tags 
+                        : new List<string>();
+                }
+            }
+            
+            IReadOnlyList<SavedIdeaView> result = savedIdeas;
+            return result;
         });
 }

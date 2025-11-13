@@ -39,24 +39,29 @@ ORDER BY l.ApiRequestLogId DESC;";
     public Task<ApiLogSummaryRow> GetSummaryAsync(int maxId, CancellationToken ct = default)
         => WithConnection(async conn =>
         {
-            var where = maxId > 0 ? "WHERE ApiRequestLogId <= @maxId" : "";
+            var whereClause = maxId > 0 ? "WHERE ApiRequestLogId <= @maxId" : "";
             var dp = new DynamicParameters(new { maxId });
 
             // totals
             var total = await conn.ExecuteScalarAsync<int>(
-                new CommandDefinition($"SELECT COUNT(1) FROM app.ApiRequestLog {where};", dp, cancellationToken: ct));
+                new CommandDefinition($"SELECT COUNT(1) FROM app.ApiRequestLog {whereClause};", dp, cancellationToken: ct));
 
             var errors = await conn.ExecuteScalarAsync<int>(
-                new CommandDefinition($"SELECT COUNT(1) FROM app.ApiRequestLog {where} AND StatusCode >= 400;", dp, cancellationToken: ct));
+                new CommandDefinition(
+                    maxId > 0
+                        ? "SELECT COUNT(1) FROM app.ApiRequestLog WHERE ApiRequestLogId <= @maxId AND StatusCode >= 400;"
+                        : "SELECT COUNT(1) FROM app.ApiRequestLog WHERE StatusCode >= 400;",
+                    dp,
+                    cancellationToken: ct));
 
             var avgLatency = await conn.ExecuteScalarAsync<double?>(
-                new CommandDefinition($"SELECT AVG(CAST(ISNULL(DurationMs,0) AS float)) FROM app.ApiRequestLog {where};", dp, cancellationToken: ct));
+                new CommandDefinition($"SELECT AVG(CAST(ISNULL(DurationMs,0) AS float)) FROM app.ApiRequestLog {whereClause};", dp, cancellationToken: ct));
 
             var tokensIn = await conn.ExecuteScalarAsync<int>(
-                new CommandDefinition($"SELECT SUM(ISNULL(TokensIn,0)) FROM app.ApiRequestLog {where};", dp, cancellationToken: ct));
+                new CommandDefinition($"SELECT SUM(ISNULL(TokensIn,0)) FROM app.ApiRequestLog {whereClause};", dp, cancellationToken: ct));
 
             var tokensOut = await conn.ExecuteScalarAsync<int>(
-                new CommandDefinition($"SELECT SUM(ISNULL(TokensOut,0)) FROM app.ApiRequestLog {where};", dp, cancellationToken: ct));
+                new CommandDefinition($"SELECT SUM(ISNULL(TokensOut,0)) FROM app.ApiRequestLog {whereClause};", dp, cancellationToken: ct));
 
             return new ApiLogSummaryRow
             {

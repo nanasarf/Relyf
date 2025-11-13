@@ -11,11 +11,13 @@ public sealed class SavesController : ControllerBase
 {
     private readonly ISaveRepository _saves;
     private readonly ILookupRepository _lookup;
+    private readonly IFollowRepository _follows;
 
-    public SavesController(ISaveRepository saves, ILookupRepository lookup)
+    public SavesController(ISaveRepository saves, ILookupRepository lookup, IFollowRepository follows)
     {
         _saves = saves;
         _lookup = lookup;
+        _follows = follows;
     }
 
     private int GetUserId()
@@ -52,15 +54,28 @@ public sealed class SavesController : ControllerBase
         return n == 0 ? NotFound() : NoContent();
     }
 
-    // GET /api/saves/user/{userId} -> list saved ideas (must match caller)
+    // GET /api/saves/user/{userId} -> list saved ideas (own saves or saves of users you follow)
     [HttpGet("user/{userId:int}")]
     [Authorize]
     public async Task<IActionResult> ListForUser(int userId, CancellationToken ct)
     {
-        // Prevent IDOR: the requested userId must be the token's userId
-        if (userId != GetUserId()) return Forbid();
+        var currentUserId = GetUserId();
+        
+        // Allow viewing own saves
+        if (userId == currentUserId)
+        {
+            var list = await _saves.ListForUserAsync(userId, ct);
+            return Ok(list);
+        }
+        
+        // Allow viewing saves of users you follow
+        var isFollowing = await _follows.IsFollowingAsync(currentUserId, userId);
+        if (!isFollowing)
+        {
+            return Forbid();
+        }
 
-        var list = await _saves.ListForUserAsync(userId, ct);
-        return Ok(list);
+        var saves = await _saves.ListForUserAsync(userId, ct);
+        return Ok(saves);
     }
 }

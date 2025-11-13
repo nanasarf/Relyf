@@ -52,9 +52,12 @@ public class RelyfDbContext(DbContextOptions<RelyfDbContext> options) : DbContex
             e.Property(x => x.IdeaText).IsRequired();
             e.Property(x => x.Difficulty).HasMaxLength(20);
             e.Property(x => x.EstCostUSD).HasColumnType("decimal(10,2)");
+            e.Property(x => x.IsDeleted).HasDefaultValue(false);
+            e.Property(x => x.CreatedAtUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+            e.Property(x => x.ItemId).IsRequired(false); // Allow NULL for ideas without associated items
 
             e.HasOne<CoherePrompt>().WithMany().HasForeignKey(x => x.CoherePromptId);
-            e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId);
+            e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired(false); // Optional FK
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
         });
 
@@ -77,6 +80,8 @@ public class RelyfDbContext(DbContextOptions<RelyfDbContext> options) : DbContex
             e.HasKey(x => x.ProjectId);
             e.Property(x => x.Title).HasMaxLength(160).IsRequired();
             e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("draft");
+            e.Property(x => x.IsDeleted).HasDefaultValue(false);
+            e.Property(x => x.CreatedAtUtc).HasDefaultValueSql("SYSUTCDATETIME()");
             e.HasOne<AiIdea>().WithMany().HasForeignKey(x => x.IdeaId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
         });

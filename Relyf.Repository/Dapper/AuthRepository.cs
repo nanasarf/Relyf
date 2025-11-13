@@ -18,6 +18,15 @@ public sealed class AuthRepository : BaseRepository, IAuthRepository
             return n > 0;
         });
 
+    public Task<bool> UserNameExistsAsync(string userName, CancellationToken ct = default) =>
+        WithConnection(async conn =>
+        {
+            const string sql = "SELECT COUNT(1) FROM app.[User] WHERE UserName = @userName;";
+            var n = await conn.ExecuteScalarAsync<int>(
+                new CommandDefinition(sql, new { userName }, cancellationToken: ct));
+            return n > 0;
+        });
+
     public Task<UserAuthRecord?> GetUserByEmailAsync(string email, CancellationToken ct = default) =>
         WithConnection(conn => conn.QuerySingleOrDefaultAsync<UserAuthRecord>(
             new CommandDefinition(
@@ -35,7 +44,7 @@ public sealed class AuthRepository : BaseRepository, IAuthRepository
                 new { userId }, cancellationToken: ct)));
 
     public Task<UserAuthRecord> CreateUserWithCredentialAsync(
-        string email, string displayName, string? countryCode,
+        string email, string userName, string displayName, string? countryCode,
         byte[] passwordHash, byte[] passwordSalt, CancellationToken ct = default)
         => WithConnection(async conn =>
         {
@@ -43,12 +52,12 @@ public sealed class AuthRepository : BaseRepository, IAuthRepository
 
             // Insert user
             const string insertUser = @"
-INSERT INTO app.[User] (Email, DisplayName, CountryCode, IsDeleted)
-VALUES (@email, @displayName, @countryCode, 0);
+INSERT INTO app.[User] (Email, UserName, DisplayName, CountryCode, IsDeleted)
+VALUES (@email, @userName, @displayName, @countryCode, 0);
 SELECT CAST(SCOPE_IDENTITY() AS int);";
 
             var userId = await conn.ExecuteScalarAsync<int>(
-                new CommandDefinition(insertUser, new { email, displayName, countryCode }, tx, cancellationToken: ct));
+                new CommandDefinition(insertUser, new { email, userName, displayName, countryCode }, tx, cancellationToken: ct));
 
             // Insert credential
             const string insertCred = @"
@@ -64,6 +73,7 @@ VALUES (@userId, @passwordHash, @passwordSalt);";
             {
                 UserId = userId,
                 Email = email,
+                UserName = userName,
                 DisplayName = displayName,
                 CountryCode = countryCode
             };

@@ -4,6 +4,7 @@ public sealed class UserAuthRecord
 {
     public int UserId { get; init; }
     public string Email { get; init; } = "";
+    public string? UserName { get; init; }
     public string DisplayName { get; init; } = "";
     public string? CountryCode { get; init; }
 }

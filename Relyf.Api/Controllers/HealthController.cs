@@ -6,28 +6,15 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class HealthController : ControllerBase
 {
-    private readonly RelyfDbContext _db;
-    private readonly Relyf.Service.Interfaces.ICohereClient _cohere;
-
-    public HealthController(RelyfDbContext db, Relyf.Service.Interfaces.ICohereClient cohere)
+    // Removed dependencies to test if DI is the issue
+    public HealthController()
     {
-        _db = db;
-        _cohere = cohere;
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get(CancellationToken ct)
+    public IActionResult Get()
     {
-        var dbOk = await _db.Database.CanConnectAsync(ct);
-
-        // Very light Cohere ping: send a tiny prompt; swallow errors into status
-        bool cohereOk = true;
-        try
-        {
-            var _ = await _cohere.ChatAsync("ping", ct);
-        }
-        catch { cohereOk = false; }
-
-        return Ok(new { db = dbOk, cohere = cohereOk, utc = DateTime.UtcNow });
+        // Super simple health check - just return OK without any dependencies
+        return Ok(new { status = "healthy", utc = DateTime.UtcNow });
     }
 }

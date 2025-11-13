@@ -11,27 +11,26 @@ public sealed class ItemRepository : BaseRepository, IItemRepository
 
     public Task<ItemRecord?> GetByIdAsync(int itemId, int authUserId) =>
         WithConnection(conn => conn.QuerySingleOrDefaultAsync<ItemRecord>(
-            @"SELECT ItemId, UserId, Title, Description, SourceItem, CreatedAtUtc, UpdatedAtUtc, IsDeleted
+            @"SELECT ItemId, UserId, Title, Description, CreatedAtUtc, UpdatedAtUtc, IsDeleted
               FROM app.Item
               WHERE ItemId = @itemId AND UserId = @authUserId AND IsDeleted = 0;",
             new { itemId, authUserId }));
 
     public Task<int> CreateAsync(int authUserId, string title, string? description, string? sourceItem) =>
         WithConnection(conn => conn.ExecuteScalarAsync<int>(
-            @"INSERT INTO app.Item (UserId, Title, Description, SourceItem, CreatedAtUtc, IsDeleted)
-              VALUES (@authUserId, @title, @description, @sourceItem, SYSUTCDATETIME(), 0);
+            @"INSERT INTO app.Item (UserId, Title, Description, CreatedAtUtc, IsDeleted)
+              VALUES (@authUserId, @title, @description, SYSUTCDATETIME(), 0);
               SELECT CAST(SCOPE_IDENTITY() AS int);",
-            new { authUserId, title, description, sourceItem }));
+            new { authUserId, title, description }));
 
     public Task<int> UpdateAsync(int itemId, int authUserId, string title, string? description, string? sourceItem) =>
         WithConnection(conn => conn.ExecuteAsync(
             @"UPDATE app.Item
               SET Title = @title,
                   Description = @description,
-                  SourceItem = @sourceItem,
                   UpdatedAtUtc = SYSUTCDATETIME()
               WHERE ItemId = @itemId AND UserId = @authUserId AND IsDeleted = 0;",
-            new { itemId, authUserId, title, description, sourceItem }));
+            new { itemId, authUserId, title, description }));
 
     public Task<int> SoftDeleteAsync(int itemId, int authUserId) =>
         WithConnection(conn => conn.ExecuteAsync(
@@ -68,7 +67,7 @@ public sealed class ItemRepository : BaseRepository, IItemRepository
 
         var countSql = $"SELECT COUNT(1) FROM app.Item WHERE {where};";
         var listSql =
-$@"SELECT ItemId, UserId, Title, Description, SourceItem, CreatedAtUtc, UpdatedAtUtc, IsDeleted
+$@"SELECT ItemId, UserId, Title, Description, CreatedAtUtc, UpdatedAtUtc, IsDeleted
    FROM app.Item
    WHERE {where}
    ORDER BY {col} {dir}

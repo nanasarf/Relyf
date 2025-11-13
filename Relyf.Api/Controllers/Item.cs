@@ -26,8 +26,7 @@ public sealed class ItemsController : ControllerBase
     // ----- DTOs -----
     public sealed record CreateItemDto(
         [Required, StringLength(120)] string Title,
-        [StringLength(4000)] string? Description,
-        [StringLength(120)] string? SourceItem);
+        [StringLength(4000)] string? Description);
 
     // GET: /api/items
     // Supports paging/sorting/search via query
@@ -48,7 +47,7 @@ public sealed class ItemsController : ControllerBase
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
         var userId = GetUserId();
-        var id = await _items.CreateAsync(userId, dto.Title, dto.Description, dto.SourceItem);
+        var id = await _items.CreateAsync(userId, dto.Title, dto.Description, null);
         return CreatedAtAction(nameof(GetById), new { id }, new { id });
     }
 

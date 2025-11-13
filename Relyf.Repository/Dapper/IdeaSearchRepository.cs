@@ -17,7 +17,7 @@ public sealed class IdeaSearchRepository : BaseRepository, IIdeaSearchRepository
         skip = Math.Max(0, skip);
 
         // WHERE builder
-        var where = "i.IsDeleted = 0";
+        var where = "";
         var dyn = new DynamicParameters();
         dyn.Add("skip", skip);
         dyn.Add("take", take);
@@ -25,13 +25,15 @@ public sealed class IdeaSearchRepository : BaseRepository, IIdeaSearchRepository
         if (!string.IsNullOrWhiteSpace(q))
         {
             var s = "%" + EscapeLike(q.Trim()) + "%";
-            where += " AND (i.Title LIKE @s ESCAPE '\\' OR i.IdeaText LIKE @s ESCAPE '\\')";
+            where = "(i.Title LIKE @s ESCAPE '\\' OR i.IdeaText LIKE @s ESCAPE '\\')";
             dyn.Add("s", s);
         }
 
         if (userId is not null)
         {
-            where += " AND i.UserId = @userId";
+            where = string.IsNullOrEmpty(where)
+                ? "i.UserId = @userId"
+                : where + " AND i.UserId = @userId";
             dyn.Add("userId", userId.Value);
         }
 
@@ -39,14 +41,18 @@ public sealed class IdeaSearchRepository : BaseRepository, IIdeaSearchRepository
         if (!string.IsNullOrWhiteSpace(tag))
         {
             join = "JOIN app.IdeaTag it ON it.IdeaId = i.IdeaId JOIN app.Tag t ON t.TagId = it.TagId";
-            where += " AND t.Name = @tag";
+            where = string.IsNullOrEmpty(where)
+                ? "t.Name = @tag"
+                : where + " AND t.Name = @tag";
             dyn.Add("tag", tag.Trim());
         }
+
+        var whereClause = string.IsNullOrEmpty(where) ? "" : "WHERE " + where;
 
         var countSql = $@"SELECT COUNT(1)
 FROM app.AiIdea i
 {join}
-WHERE {where};";
+{whereClause};";
 
         var dataSql = $@"
 SELECT i.IdeaId,
@@ -56,7 +62,7 @@ SELECT i.IdeaId,
        i.ItemId
 FROM app.AiIdea i
 {join}
-WHERE {where}
+{whereClause}
 ORDER BY i.IdeaId DESC
 OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY;";
 
@@ -65,4 +71,7 @@ OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY;";
         IReadOnlyList<IdeaSearchRow> rows = rowsList;
         return (rows, total);
     });
+
+    private static string EscapeLike(string s) =>
+        s.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Replace("[", "\\[");
 }

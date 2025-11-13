@@ -31,4 +31,8 @@
     <ProjectReference Include="..\Relyf.Service\Relyf.Service.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Swagger\" />
+  </ItemGroup>
+
 </Project>
