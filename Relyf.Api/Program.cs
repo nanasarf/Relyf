@@ -182,6 +182,7 @@ app.Lifetime.ApplicationStopping.Register(() =>
     log.LogWarning("ApplicationStopping triggered");
 });
 
+// Enable Swagger in all environments for testing on Render
 app.UseSwagger();
 app.UseSwaggerUI();
 
