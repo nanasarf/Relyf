@@ -18,6 +18,7 @@ public sealed class ImageRepository : BaseRepository, IImageRepository
                 "Item" => "SELECT COUNT(1) FROM app.Item    WHERE ItemId    = @ownerId;",
                 "Idea" => "SELECT COUNT(1) FROM app.AiIdea  WHERE IdeaId    = @ownerId;",
                 "Project" => "SELECT COUNT(1) FROM app.Project WHERE ProjectId = @ownerId;",
+                "User" => "SELECT COUNT(1) FROM app.[User] WHERE UserId = @ownerId;",
                 _ => throw new ArgumentOutOfRangeException(nameof(ownerType))
             };
             var n = await conn.ExecuteScalarAsync<int>(sql, new { ownerId });

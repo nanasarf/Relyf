@@ -7,7 +7,7 @@ namespace Relyf.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class ImagesController : ControllerBase
 {
-    private static readonly HashSet<string> AllowedOwners = new(StringComparer.OrdinalIgnoreCase) { "Item", "Idea", "Project" };
+    private static readonly HashSet<string> AllowedOwners = new(StringComparer.OrdinalIgnoreCase) { "Item", "Idea", "Project", "User" };
     private static readonly HashSet<string> AllowedSources = new(StringComparer.OrdinalIgnoreCase) { "upload", "url", "cloudinary" };
     private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase) 
     { 
@@ -62,7 +62,7 @@ public sealed class ImagesController : ControllerBase
     public async Task<IActionResult> Add([FromBody] AddImageRequest req, CancellationToken ct)
     {
         if (!AllowedOwners.Contains(req.OwnerType)) 
-            return BadRequest(new { error = "OwnerType must be Item, Idea, or Project." });
+            return BadRequest(new { error = "OwnerType must be Item, Idea, Project, or User." });
 
         if (!await _repo.OwnerExistsAsync(req.OwnerType, req.OwnerId))
             return BadRequest(new { error = "Owner not found." });
@@ -122,7 +122,7 @@ public sealed class ImagesController : ControllerBase
     /// POST /api/images/upload - Upload image via multipart/form-data (recommended)
     /// Usage: 
     /// - file: binary file data
-    /// - ownerType: "Item" | "Idea" | "Project"
+    /// - ownerType: "Item" | "Idea" | "Project" | "User"
     /// - ownerId: integer
     /// - altText: optional string
     /// </summary>
@@ -135,7 +135,7 @@ public sealed class ImagesController : ControllerBase
             return BadRequest(new { error = "File is required." });
 
         if (!AllowedOwners.Contains(request.OwnerType))
-            return BadRequest(new { error = "OwnerType must be Item, Idea, or Project." });
+            return BadRequest(new { error = "OwnerType must be Item, Idea, Project, or User." });
 
         if (!AllowedImageTypes.Contains(request.File.ContentType))
             return BadRequest(new { error = $"Invalid file type. Allowed types: {string.Join(", ", AllowedImageTypes)}" });
