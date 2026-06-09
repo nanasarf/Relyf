@@ -196,8 +196,7 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
-// Temporarily disable HTTPS redirection while diagnosing first-request shutdown
-// app.UseHttpsRedirection();
+app.UseHttpsRedirection();
 
 app.UseCors(ClientCors);
 
