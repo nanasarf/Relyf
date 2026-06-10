@@ -1,0 +1,13 @@
+{
+  "ConnectionStrings": {
+    "RelyfDb": "Server=(localdb)\\ProjectModels;Database=Relyf.Database;Trusted_Connection=True;MultipleActiveResultSets=true",
+    "Default": "Server=(localdb)\\ProjectModels;Database=Relyf.Database;Integrated Security=true;TrustServerCertificate=true"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Information",
+      "Microsoft.EntityFrameworkCore": "Information"
+    }
+  }
+}

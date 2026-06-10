@@ -15,8 +15,40 @@ using Relyf.Repository.Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Validate and log database connection configuration
+var relyfDbConnStr = builder.Configuration.GetConnectionString("RelyfDb");
+var defaultConnStr = builder.Configuration.GetConnectionString("Default");
+
+if (string.IsNullOrWhiteSpace(relyfDbConnStr) || relyfDbConnStr.Contains("USE-ENVIRONMENT-VARIABLE"))
+{
+    throw new InvalidOperationException(
+        "Database connection string 'RelyfDb' is not configured. " +
+        "For production deployment, set environment variable: ConnectionStrings__RelyfDb " +
+        "For local development, ensure appsettings.Development.json exists with LocalDB connection string.");
+}
+
+if (string.IsNullOrWhiteSpace(defaultConnStr) || defaultConnStr.Contains("USE-ENVIRONMENT-VARIABLE"))
+{
+    throw new InvalidOperationException(
+        "Database connection string 'Default' is not configured. " +
+        "For production deployment, set environment variable: ConnectionStrings__Default " +
+        "For local development, ensure appsettings.Development.json exists with LocalDB connection string.");
+}
+
+// Log connection info (without exposing password)
+var logger = LoggerFactory.Create(config => config.AddConsole()).CreateLogger("Startup");
+logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
+logger.LogInformation("RelyfDb connection configured: {HasConnection}", !string.IsNullOrEmpty(relyfDbConnStr));
+logger.LogInformation("Default connection configured: {HasConnection}", !string.IsNullOrEmpty(defaultConnStr));
+
+// Warn if using LocalDB in non-development environment
+if (!builder.Environment.IsDevelopment() && (relyfDbConnStr.Contains("localdb") || defaultConnStr.Contains("localdb")))
+{
+    logger.LogWarning("WARNING: LocalDB connection string detected in {Environment} environment. LocalDB only works on Windows. Use cloud SQL Server instead.", builder.Environment.EnvironmentName);
+}
+
 builder.Services.AddDbContext<RelyfDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("RelyfDb")));
+    opt.UseSqlServer(relyfDbConnStr));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 var jwtSection = builder.Configuration.GetSection("Jwt");
